@@ -1,0 +1,67 @@
+proxy_cache_path /tmp/cache/forever levels=1:2 keys_zone=forever:10m max_size=1g inactive=90d;
+
+proxy_cache_path /tmp/cache/long levels=1:2 keys_zone=long:10m max_size=1g inactive=60m;
+
+proxy_cache_path /tmp/cache/short levels=1:2 keys_zone=short:10m max_size=1g inactive=1m;
+
+proxy_cache_path /tmp/cache/nearlive levels=1:2 keys_zone=nearlive:10m max_size=1g inactive=3s;
+
+proxy_cache_key "$request_uri";
+
+proxy_cache_methods GET HEAD;
+
+server {
+  listen 80 default_server;
+  client_max_body_size 1G;
+  access_log /var/log/nginx/access.log;
+
+  server_name  avalon.d.tube;
+  
+
+  #Forever
+	location ~*(/block/|/history/*/)
+	{
+    proxy_cache_valid 90d;
+    proxy_cache forever;
+    expires 90d;
+		proxy_cache_min_uses 3;
+		add_header X-Cache-Status $upstream_cache_status;
+		proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
+		proxy_pass              http://[::]:3001;
+ 	}
+  
+  #Long
+  location ~*(/accountprice/|/blog/|/config|/feed|/oembed/|/opengraph/|/youtube/)
+	{
+    proxy_cache_valid 1h;
+    proxy_cache long;
+    expires 1h;
+		proxy_cache_min_uses 2;
+		add_header X-Cache-Status $upstream_cache_status;
+		proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
+		proxy_pass              http://[::]:3001;
+    }
+    
+  #Short 
+  location ~*(/allminers|/distributed/|/feed|/followers|/follows|/hot|/notifications|/schedule|/transact|/trending|/trending/)
+  {
+    proxy_cache_valid any 1m;
+    proxy_cache short;
+    expires 1m;
+    proxy_cache_min_uses 2;
+    add_header X-Cache-Status $upstream_cache_status;
+    proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
+    proxy_pass              http://[::]:3001;
+    }
+    
+  #Near Live 
+  location ~*(/account/|/accounts/|/content/|/count|/history/|/new$|/rewardpool)
+  {
+    proxy_cache_valid any 3s;
+    proxy_cache nearlive;
+    expires 3s;
+    add_header X-Cache-Status $upstream_cache_status;
+    proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
+    proxy_pass              http://[::]:3001;
+    }
+}
