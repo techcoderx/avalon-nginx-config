@@ -55,7 +55,7 @@ server {
     }
     
   #Near Live 
-  location ~*(/account/|/accounts/|/content/|/count|/history/|/new$|/rewardpool)
+  location ~*(/account/|/accounts/|/content/|/count|/history/|/new|/rewardpool)
   {
     proxy_cache_valid any 3s;
     proxy_cache nearlive;
