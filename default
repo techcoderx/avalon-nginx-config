@@ -1,30 +1,41 @@
 proxy_cache_path /tmp/cache/forever levels=1:2 keys_zone=forever:10m max_size=1g inactive=90d;
 proxy_cache_path /tmp/cache/long levels=1:2 keys_zone=long:10m max_size=1g inactive=60m;
+proxy_cache_path /tmp/cache/medium levels=1:2 keys_zone=medium:10m max_size=1g inactive=5m;
 proxy_cache_path /tmp/cache/short levels=1:2 keys_zone=short:10m max_size=1g inactive=1m;
 proxy_cache_path /tmp/cache/nearlive levels=1:2 keys_zone=nearlive:10m max_size=1g inactive=3s;
 proxy_cache_key "$request_uri";
 proxy_cache_methods GET HEAD;
 
 server {
-	listen 80;
-	listen [::]:80;
-	server_name avalon.oneloved.tube;
-	return 301 https://$host$request_uri;
+        listen 80;
+        listen [::]:80;
+        server_name avalon.oneloved.tube;
+        return 301 https://$host$request_uri;
 }
 
 server {
-	listen 443 ssl http2;
-	listen [::]:443 ssl http2;
-	server_name avalon.oneloved.tube;
-	ssl_certificate /etc/letsencrypt/live/avalon.oneloved.tube/fullchain.pem;
-	ssl_certificate_key /etc/letsencrypt/live/avalon.oneloved.tube/privkey.pem;
+        listen 443 ssl http2;
+        listen [::]:443 ssl http2;
+        server_name avalon.oneloved.tube;
+        ssl_certificate /etc/letsencrypt/live/avalon.oneloved.tube/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/avalon.oneloved.tube/privkey.pem;
 
-	include snippets/ssl-params.conf;
+        include snippets/ssl-params.conf;
 
 	client_max_body_size 1G;
 	access_log /var/log/nginx/access.log;
 
 	add_header Access-Control-Allow-Origin *;
+
+	location ~*(/tx/) {
+		proxy_cache_valid 90d;
+                proxy_cache forever;
+                expires 90d;
+                proxy_cache_min_uses 3;
+                add_header X-Cache-Status $upstream_cache_status;
+                proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
+                proxy_pass http://[::]:3008;
+	}
 
 	#Forever
 	location ~*(/block/) {
@@ -35,6 +46,7 @@ server {
 		add_header X-Cache-Status $upstream_cache_status;
 		proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
 		proxy_pass http://[::]:3001;
+		#proxy_pass https://avalon.d.tube;
 	}
 
 	#Long
@@ -46,10 +58,22 @@ server {
 		add_header X-Cache-Status $upstream_cache_status;
 		proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
 		proxy_pass http://[::]:3001;
+		#proxy_pass https://avalon.d.tube;
+	}
+
+	#Medium
+	location ~*(/rank/leaders) {
+		proxy_cache_valid 5m;
+                proxy_cache medium;
+                expires 5m;
+                proxy_cache_min_uses 2;
+                add_header X-Cache-Status $upstream_cache_status;
+                proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
+                proxy_pass http://[::]:3008;
 	}
 
 	#Short
-	location ~*(/allminers|/distributed/|/feed|/followers|/follows|/hot|/notifications|/schedule|/transact|/transactWaitConfirm|/trending|/trending/) {
+	location ~*(/allminers|/distributed/|/feed|/followers|/follows|/hot|/notifications|/rewards/|/schedule|/transact|/transactWaitConfirm|/trending|/trending/) {
 		proxy_cache_valid any 1m;
 		proxy_cache short;
 		expires 1m;
@@ -57,15 +81,36 @@ server {
 		add_header X-Cache-Status $upstream_cache_status;
 		proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
 		proxy_pass http://[::]:3001;
+		#proxy_pass https://avalon.d.tube;
+	}
+
+	location ~*(/rank/subs|/rank/balance|/leader/) {
+		proxy_cache_valid any 1m;
+                proxy_cache short;
+                expires 1m;
+                proxy_cache_min_uses 2;
+                add_header X-Cache-Status $upstream_cache_status;
+                proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
+                proxy_pass http://[::]:3008;
 	}
 
 	#Near Live
-	location ~*(/account/|/accounts/|/content/|/count|/history/|/new$|/new/|/rewardpool|/votes|/supply) {
+	location ~*(/account/|/accounts/|/content/|/count|/new$|/new/|/rewardpool|/votes|/supply) {
 		proxy_cache_valid any 3s;
 		proxy_cache nearlive;
 		expires 3s;
 		add_header X-Cache-Status $upstream_cache_status;
 		proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
 		proxy_pass http://[::]:3001;
+		#proxy_pass https://avalon.d.tube;
+	}
+
+	location ~*(/history) {
+		proxy_cache_valid any 3s;
+                proxy_cache nearlive;
+                expires 3s;
+                add_header X-Cache-Status $upstream_cache_status;
+                proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
+                proxy_pass http://[::]:3008;
 	}
 }
