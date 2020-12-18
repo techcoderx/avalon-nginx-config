@@ -113,4 +113,11 @@ server {
                 proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
                 proxy_pass http://localhost:3008;
 	}
+	
+	location /blocks.zip {
+                add_header X-Cache-Status $upstream_cache_status;
+                proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
+                root /home/techcoderx/avalondump/;
+                try_files /blocks.zip /blocks.zip;
+        }
 }
